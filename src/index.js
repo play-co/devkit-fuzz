@@ -14,3 +14,8 @@ module.exports = function(url, name) {
   return test.runTest();
 };
 
+module.exports.PhantomTest = PhantomTest;
+module.exports.tests = {
+  FuzzTest: FuzzTest,
+  Screencap: Screencap
+}
