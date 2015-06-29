@@ -79,12 +79,17 @@ var PhantomTest = function(opts) {
   }
 
   this.isRunning = false;
+  this.deferredRunning = null;
 
   this.shutdown = Q.defer();
   this.shutdown.promise.then(this._handleShutdown.bind(this));
   this.shutdown.promise.fin(function () {
       this.logger.close();
-      process.exit(this.shutdownCode ? 1 : 0);
+      if (this.shutdownCode) {
+        this.deferredRunning.reject();
+      } else {
+        this.deferredRunning.resolve();
+      }
     }.bind(this));
 };
 
@@ -160,6 +165,7 @@ PhantomTest.prototype.setupPhantomPage = function() {
  */
 PhantomTest.prototype.runTest = function() {
   this.isRunning = true;
+  this.deferredRunning = Q.defer();
 
   // Shutdown
   this.shutdown.promise.then(function() {
@@ -178,8 +184,10 @@ PhantomTest.prototype.runTest = function() {
     }.bind(this))
     .catch(function(err) {
       console.error(err.stack);
-      process.exit(1);
-    });
+      this.deferredRunning.reject(1);
+    }.bind(this));
+
+  return this.deferredRunning.promise;
 };
 
 /**

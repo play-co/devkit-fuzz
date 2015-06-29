@@ -11,6 +11,6 @@ module.exports = function(url, name) {
       FuzzTest
     ]
   });
-  test.runTest();
+  return test.runTest();
 };
 

@@ -15,4 +15,8 @@ var argv = require('yargs')
   })
   .argv;
 
-require('./index')(argv.url, argv.name);
+require('./index')(argv.url, argv.name).then(function() {
+    process.exit();
+  }, function() {
+    process.exit(1);
+  });
