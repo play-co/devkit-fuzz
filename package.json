@@ -1,6 +1,7 @@
 {
   "name": "devkitFuzzTest",
   "main": "src/index.js",
+  "version": "0.0.1",
   "dependencies": {
     "fs-extra": "^0.20.1",
     "phantom": "^0.7.2",
