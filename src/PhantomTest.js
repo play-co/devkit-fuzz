@@ -1,5 +1,4 @@
 var path = require('path');
-var exec = require('child_process').exec;
 
 var fs = require('fs-extra');
 var phantom = require('phantom');
@@ -15,38 +14,6 @@ var FPS = 10;
  */
 var ensureDirectoryClean = function(dir) {
   fs.emptyDirSync(dir);
-};
-
-/**
- * Run ffmpeg in a directory, converting a series of screenshots to a screencap
- * Resolves (or rejects) once the command has finished running
- * @returns {promise}
- */
-var runffmpeg = function(outputDir) {
-  var deferred = Q.defer();
-
-  var input = path.join(outputDir, 'screenshot%d.jpeg');
-  var output = path.join(outputDir, 'screencap.webm');
-  console.log('running ffmpeg...', input);
-
-  // Remove the old one if it exists
-  if (fs.existsSync(output)) {
-    fs.unlinkSync(output);
-  }
-
-  var cmd = 'ffmpeg -r ' + FPS + ' -i ' + input + ' -g 120 -level 216 -profile 0 -qmax 42 -qmin 10 -rc_buf_aggressivity 0.95 -vb 2M ' + output;
-
-  exec(cmd, function (error, stdout, stderr) {
-    console.log('ffmpeg complete');
-
-    if (error) {
-      deferred.reject(error);
-    } else {
-      deferred.resolve();
-    }
-  });
-
-  return deferred.promise;
 };
 
 //////////////////////////////////////
@@ -71,6 +38,13 @@ var PhantomTest = function(opts) {
   this.logger = new Logger();
   this.logger.open(path.join(this.outputDir, 'jsOutput.txt'));
 
+  this.isRunning = false;
+  this.deferredRunning = null;
+
+  this.shutdown = Q.defer();
+  this.shutdown.promise = this.shutdown.promise.then(this._handleShutdown.bind(this));
+
+  // Register all the tests
   this.tests = [];
   if (opts.tests) {
     opts.tests.forEach(function(testCtor) {
@@ -78,13 +52,11 @@ var PhantomTest = function(opts) {
     }.bind(this));
   }
 
-  this.isRunning = false;
-  this.deferredRunning = null;
-
-  this.shutdown = Q.defer();
-  this.shutdown.promise.then(this._handleShutdown.bind(this));
+  // Do this last in case any of the tests want to add to the promise
   this.shutdown.promise.fin(function () {
+      console.log('Closing logger');
       this.logger.close();
+
       if (this.shutdownCode) {
         this.deferredRunning.reject();
       } else {
@@ -112,9 +84,9 @@ PhantomTest.prototype._handleShutdown = function(code) {
   });
   this.ph.exit();
 
-  // ffmpeg bullshit
   setTimeout(function() {
     this.logger.log('SHUTDOWN ' + code);
+    console.log('Shutdown complete, all closed');
 
     deferred.resolve();
   }.bind(this), 1000);
@@ -166,11 +138,6 @@ PhantomTest.prototype.setupPhantomPage = function() {
 PhantomTest.prototype.runTest = function() {
   this.isRunning = true;
   this.deferredRunning = Q.defer();
-
-  // Shutdown
-  this.shutdown.promise.then(function() {
-      return runffmpeg(this.outputDir);
-    }.bind(this));
 
   // Run phantom on the URL
   this.createPhantom()
